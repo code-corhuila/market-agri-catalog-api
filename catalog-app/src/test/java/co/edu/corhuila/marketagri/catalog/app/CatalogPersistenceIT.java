@@ -26,7 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(named = "TEST_DATABASE_URL", matches = ".+")
-class CatalogPersistenceIT {
+class CatalogPersistenceIT extends CatalogSpringTest {
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
