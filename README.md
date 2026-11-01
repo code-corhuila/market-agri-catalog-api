@@ -27,6 +27,8 @@ its migrations live in `market-agri-catalog-db` (ADR-011); this service connects
 | `X-Correlation-Id` reused or generated, returned, as `traceId` and in every JSON log line (D-C28) | `adapter/in/http/CorrelationFilter` |
 | `GET /health/ready` → `200`/`503` `{"status","checks":{"database"}}` without token (readiness, E-61) | `adapter/in/http/HealthController`, `adapter/out/persistence/JdbcDatabaseCheck` |
 | Pool of 10 connections, 5 s wait, `statement_timeout` 5 s, always as `catalog_app` (Anexo C 5.3.10) | `catalog-app/src/main/resources/application.yml` |
+| Token validated **locally**: RS256 only, signature with `JWT_PUBLIC_KEY` (or `JWT_PUBLIC_KEY_FILE`), `iss` = `JWT_ISSUER`, `exp` with 30 s skew, `sub`, known `role`; `401` with `WWW-Authenticate: Bearer` (ADR-020, Anexo C 5.3.7) | `adapter/in/http/Rs256Verifier`, `AuthInterceptor` |
+| Routes need a token unless marked `@PublicEndpoint` (cards marked *Anonymous*, which ignore tokens); a `SERVICE` token only on `/internal/**`, a user token only outside it: `403` (D-C27) | `adapter/in/http/AuthInterceptor`, `PublicEndpoint` |
 
 ## Run locally
 
