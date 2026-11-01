@@ -14,8 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
  * database outage never makes the platform restart a healthy container. Readiness,
  * {@code GET /health/ready} (E-61), reports each dependency: {@code 200} when all are up,
  * {@code 503} otherwise, with the same body. catalog has only {@code database}: it consumes no
- * event since the checkout saga (api-contract amendment 2026-10-11).
+ * event since the checkout saga (api-contract amendment 2026-10-11). Both are anonymous.
  */
+@PublicEndpoint
 @RestController
 public class HealthController {
 
