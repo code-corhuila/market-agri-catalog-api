@@ -12,7 +12,6 @@
     <artifactId>catalog-adapters</artifactId>
     <description>Inbound HTTP adapter and outbound adapters. They implement the ports of the core.</description>
 
-    <!-- JDBC and the PostgreSQL driver arrive with the first use case that needs them (C4). -->
     <dependencies>
         <dependency>
             <groupId>co.edu.corhuila.marketagri</groupId>
@@ -26,6 +25,16 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <!-- Plain JDBC with the Hikari pool: no JPA, the schema belongs to catalog-db (ADR-011). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
