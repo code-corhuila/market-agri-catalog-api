@@ -1,5 +1,9 @@
 package co.edu.corhuila.marketagri.catalog.app;
 
+import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcDatabaseCheck;
+import co.edu.corhuila.marketagri.catalog.application.port.out.ReadinessCheck;
+import javax.sql.DataSource;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
@@ -8,4 +12,10 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class CatalogConfiguration {
+
+    /** The pool is Spring Boot's Hikari, with the limits of application.yml. */
+    @Bean
+    ReadinessCheck databaseCheck(DataSource dataSource) {
+        return new JdbcDatabaseCheck(dataSource);
+    }
 }
