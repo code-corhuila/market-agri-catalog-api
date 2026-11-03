@@ -20,6 +20,12 @@ spring:
   sql:
     init:
       mode: never                       # no schema.sql or data.sql, ever (norm 5.2.1)
+  # E-16 (D-C30): a photo up to 5 MB; above it, 413. The request carries the file plus the multipart
+  # framing, hence the larger request ceiling (the gateway accepts up to 6 MB).
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   # priceCents is an integer (ADR-029): 12.5 is 400, not silently 12 (Jackson's default accepts it).
   jackson:
     deserialization:
@@ -31,6 +37,10 @@ jwt:
   issuer: ${JWT_ISSUER}
   public-key: ${JWT_PUBLIC_KEY:}
   public-key-file: ${JWT_PUBLIC_KEY_FILE:}
+
+# Photos of the products (E-16, E-62): one file per key, in a volume of the platform.
+media:
+  dir: ${MEDIA_DIR:/var/lib/catalog/media}
 
 server:
   port: ${PORT:8080}

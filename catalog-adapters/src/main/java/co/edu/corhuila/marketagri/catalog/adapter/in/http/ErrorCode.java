@@ -9,6 +9,8 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "No tiene permisos para realizar esta acción."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "El recurso solicitado no existe."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "Método no permitido."),
+    /** The only upload of the catalog is the photo of E-16 (D-C30). */
+    PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "La imagen supera el máximo de 5 MB."),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "El servicio no está disponible en este momento."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado.");
 
@@ -39,6 +41,7 @@ public enum ErrorCode {
             case 403 -> FORBIDDEN;
             case 404 -> NOT_FOUND;
             case 405 -> METHOD_NOT_ALLOWED;
+            case 413 -> PAYLOAD_TOO_LARGE;
             case 503 -> SERVICE_UNAVAILABLE;
             default -> status >= 500 ? INTERNAL_ERROR : VALIDATION_ERROR;
         };
