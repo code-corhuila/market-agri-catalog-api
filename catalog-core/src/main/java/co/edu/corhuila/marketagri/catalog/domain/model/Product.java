@@ -67,10 +67,16 @@ public final class Product {
         applyQuantity(Objects.requireNonNull(newQuantity, "newQuantity"), now);
     }
 
-    /** Holds stock for a payment (I-03): only if it is all available; otherwise nothing changes. */
+    /**
+     * Holds stock for a payment (I-03): only if it is all available; otherwise nothing changes. The
+     * checks follow the order of the contract: not positive, not available, insufficient.
+     */
     public void reserve(Quantity requested, Instant now) {
         if (requested.isZero()) {
-            throw new IllegalArgumentException("a reservation must be greater than zero");
+            throw new QuantityNotPositiveException(requested);
+        }
+        if (status == ProductStatus.OUT_OF_STOCK) {
+            throw new ProductNotAvailableException(id);
         }
         if (requested.isGreaterThan(quantity)) {
             throw new InsufficientStockException(quantity, requested);
