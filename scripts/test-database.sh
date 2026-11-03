@@ -42,6 +42,7 @@ ALTER ROLE catalog_app SET search_path = catalog;
 SQL
 
 # The schema comes from catalog-db, migrated by the administrator (ADR-011).
+# --contexts=integration: no demo seeds (they run only in dev and qa, D-20), so the tests start empty.
 # pwd -W gives D:/… in Git Bash; MSYS_NO_PATHCONV keeps /workspace as it is.
 HOST_DIR=$(cd "$CATALOG_DB_DIR" && { pwd -W 2>/dev/null || pwd; })
 MSYS_NO_PATHCONV=1 docker run --rm --network "container:$NAME" -v "$HOST_DIR:/workspace:ro" \
@@ -51,6 +52,6 @@ MSYS_NO_PATHCONV=1 docker run --rm --network "container:$NAME" -v "$HOST_DIR:/wo
     --username=market_admin --password="$PASSWORD" \
     --database-changelog-table-name=databasechangelog_catalog \
     --database-changelog-lock-table-name=databasechangeloglock_catalog \
-    update >&2
+    --contexts=integration update >&2
 
 echo "TEST_DATABASE_URL=jdbc:postgresql://localhost:$PORT/market_agri?user=catalog_app&password=$PASSWORD"
