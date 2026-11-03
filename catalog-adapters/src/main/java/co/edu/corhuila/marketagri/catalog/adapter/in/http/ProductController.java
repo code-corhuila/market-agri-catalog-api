@@ -1,27 +1,44 @@
 package co.edu.corhuila.marketagri.catalog.adapter.in.http;
 
 import co.edu.corhuila.marketagri.catalog.application.port.in.BrowseProducts;
+import co.edu.corhuila.marketagri.catalog.application.port.in.PublishProduct;
 import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
+import jakarta.validation.Valid;
+import java.net.URI;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Browsing the catalog (HU-CAT-005): E-10 and E-11, both anonymous (D-C9). */
+/**
+ * Products of the catalog: E-10 and E-11, anonymous (HU-CAT-005, D-C9), and E-13, a producer
+ * publishing (HU-CAT-001).
+ */
 @RestController
 @RequestMapping("/api/v1/catalog/products")
 public class ProductController {
 
     private static final Set<String> LIST_PARAMETERS = Set.of("page", "limit");
+    private static final String PRODUCTS = "/api/v1/catalog/products";
+    private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
+    private static final int KEY_MIN = 8;
+    private static final int KEY_MAX = 128;
 
     private final BrowseProducts browse;
+    private final PublishProduct publish;
 
-    public ProductController(BrowseProducts browse) {
+    public ProductController(BrowseProducts browse, PublishProduct publish) {
         this.browse = browse;
+        this.publish = publish;
     }
 
     /** E-10: newest first, then by id; page and limit as D-C24. Filters arrive with HU-CAT-006. */
@@ -44,6 +61,41 @@ public class ProductController {
     @GetMapping("/{id}")
     public ProductView get(@PathVariable UUID id) {
         return ProductView.of(browse.get(id));
+    }
+
+    /**
+     * E-13: {@code 201} with {@code Location}, or {@code 200} with the original product when the
+     * producer repeats the {@code Idempotency-Key} (D-C35). The producer is the token's subject.
+     */
+    @RequiredRole("PRODUCER")
+    @PostMapping
+    public ResponseEntity<ProductView> publish(@RequestAttribute(Caller.ATTRIBUTE) Caller caller,
+                                               @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
+                                               @Valid @RequestBody ProductWrite body) {
+        if (idempotencyKey.length() < KEY_MIN || idempotencyKey.length() > KEY_MAX) {
+            throw new InvalidParameterException(IDEMPOTENCY_KEY,
+                    "Debe tener entre " + KEY_MIN + " y " + KEY_MAX + " caracteres.");
+        }
+        PublishProduct.Publication publication = publish.publish(new PublishProduct.Command(
+                producerId(caller), caller.name(), idempotencyKey, body.name(), body.category(), body.unit(),
+                body.quantity(), body.priceCents(), body.municipality()));
+        ProductView view = ProductView.of(publication.product());
+        if (!publication.created()) {
+            return ResponseEntity.ok(view);
+        }
+        return ResponseEntity.created(URI.create(PRODUCTS + "/" + view.id())).body(view);
+    }
+
+    /** A user token has a UUID {@code sub} and a {@code name} (authentication.md §2); otherwise it is not valid. */
+    private static UUID producerId(Caller caller) {
+        if (caller.name() == null || caller.name().isBlank()) {
+            throw new UnauthorizedException("user token without name");
+        }
+        try {
+            return UUID.fromString(caller.subject());
+        } catch (IllegalArgumentException notAUuid) {
+            throw new UnauthorizedException("user token whose sub is not a UUID");
+        }
     }
 
     private static int number(Map<String, String> query, String name, int fallback, int min, int max,

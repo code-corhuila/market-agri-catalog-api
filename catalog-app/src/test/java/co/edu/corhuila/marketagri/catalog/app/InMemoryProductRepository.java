@@ -1,5 +1,6 @@
 package co.edu.corhuila.marketagri.catalog.app;
 
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPublications;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
 import co.edu.corhuila.marketagri.catalog.domain.model.Page;
@@ -7,24 +8,44 @@ import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
 import co.edu.corhuila.marketagri.catalog.domain.model.Product;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /** The product ports in memory, for the HTTP tests (Anexo C): same order as E-10. */
-final class InMemoryProductRepository implements ProductRepository, ProductStock {
+final class InMemoryProductRepository implements ProductRepository, ProductStock, ProductPublications {
 
     private static final Comparator<Product> E10_ORDER =
             Comparator.comparing(Product::createdAt).reversed().thenComparing(Product::id);
 
     private final List<Product> products = new ArrayList<>();
+    private final Map<String, UUID> keys = new HashMap<>();
 
     void clear() {
         products.clear();
+        keys.clear();
     }
 
-    void add(Product product) {
+    @Override
+    public void add(Product product) {
         products.add(product);
+    }
+
+    /** No transaction here: a used key removes the product just added, as the rollback would. */
+    @Override
+    public boolean claimKey(UUID producerId, String idempotencyKey, UUID productId) {
+        if (keys.putIfAbsent(producerId + "/" + idempotencyKey, productId) == null) {
+            return true;
+        }
+        products.removeIf(product -> product.id().equals(productId));
+        return false;
+    }
+
+    @Override
+    public Optional<UUID> productForKey(UUID producerId, String idempotencyKey) {
+        return Optional.ofNullable(keys.get(producerId + "/" + idempotencyKey));
     }
 
     @Override
