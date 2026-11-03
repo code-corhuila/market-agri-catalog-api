@@ -3,18 +3,22 @@ package co.edu.corhuila.marketagri.catalog.app;
 import co.edu.corhuila.marketagri.catalog.adapter.in.http.PublicKeys;
 import co.edu.corhuila.marketagri.catalog.adapter.in.http.Rs256Verifier;
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcDatabaseCheck;
+import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcProductPublications;
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcProductRepository;
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcReservationRepository;
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.SpringUnitOfWork;
 import co.edu.corhuila.marketagri.catalog.application.port.in.BrowseProducts;
+import co.edu.corhuila.marketagri.catalog.application.port.in.PublishProduct;
 import co.edu.corhuila.marketagri.catalog.application.port.in.ReleaseStock;
 import co.edu.corhuila.marketagri.catalog.application.port.in.ReserveStock;
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPublications;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ReadinessCheck;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ReservationRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.UnitOfWork;
 import co.edu.corhuila.marketagri.catalog.application.usecase.BrowseProductsService;
+import co.edu.corhuila.marketagri.catalog.application.usecase.PublishProductService;
 import co.edu.corhuila.marketagri.catalog.application.usecase.StockReservationService;
 import java.nio.file.Path;
 import java.security.interfaces.RSAPublicKey;
@@ -49,6 +53,17 @@ public class CatalogConfiguration {
     @Bean
     BrowseProducts browseProducts(ProductRepository products) {
         return new BrowseProductsService(products);
+    }
+
+    @Bean
+    ProductPublications productPublications(JdbcClient jdbc) {
+        return new JdbcProductPublications(jdbc);
+    }
+
+    @Bean
+    PublishProduct publishProduct(ProductPublications publications, ProductRepository products,
+                                  UnitOfWork unitOfWork) {
+        return new PublishProductService(publications, products, unitOfWork, Clock.systemUTC());
     }
 
     @Bean

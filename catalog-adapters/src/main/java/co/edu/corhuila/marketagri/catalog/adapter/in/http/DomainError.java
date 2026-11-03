@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 /** Codes of the catalog rules (api-contract §4.2), with their status and Spanish message. */
 enum DomainError {
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "El producto no existe."),
+    PRICE_NOT_POSITIVE(HttpStatus.UNPROCESSABLE_ENTITY, "El precio debe ser mayor que cero."),
+    QUANTITY_NEGATIVE(HttpStatus.UNPROCESSABLE_ENTITY, "La cantidad no puede ser negativa."),
     QUANTITY_NOT_POSITIVE(HttpStatus.UNPROCESSABLE_ENTITY, "La cantidad debe ser mayor que cero."),
     RESERVATION_MISMATCH(HttpStatus.CONFLICT, "La reserva ya existe con otros datos."),
     PRODUCT_NOT_AVAILABLE(HttpStatus.CONFLICT, "El producto no está disponible para la venta."),

@@ -42,12 +42,16 @@ public final class Product {
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
     }
 
-    /** A new product (E-13): no photo yet; the status comes from the quantity. */
+    /**
+     * A new product (E-13): no photo yet; the status comes from the quantity. Name and
+     * municipality are stored trimmed, and the municipality must have a {@link MunicipalityKey}.
+     */
     public static Product create(UUID id, UUID producerId, String producerName, String name,
                                  ProductCategory category, ProductUnit unit, Quantity quantity, Money price,
                                  String municipality, Instant now) {
-        Product product = new Product(id, producerId, producerName, name, category, unit, price, municipality,
-                null, now);
+        MunicipalityKey.of(municipality);
+        Product product = new Product(id, producerId, producerName, name.strip(), category, unit, price,
+                municipality.strip(), null, now);
         product.applyQuantity(quantity, now);
         return product;
     }
@@ -129,6 +133,11 @@ public final class Product {
 
     public String municipality() {
         return municipality;
+    }
+
+    /** What the filter of E-10 compares (D-16). */
+    public MunicipalityKey municipalityKey() {
+        return MunicipalityKey.of(municipality);
     }
 
     public String photoUrl() {

@@ -20,6 +20,10 @@ spring:
   sql:
     init:
       mode: never                       # no schema.sql or data.sql, ever (norm 5.2.1)
+  # priceCents is an integer (ADR-029): 12.5 is 400, not silently 12 (Jackson's default accepts it).
+  jackson:
+    deserialization:
+      accept-float-as-int: false
 
 # Tokens of auth, validated here (ADR-020, Anexo C 5.3.7): the issuer and the public key by
 # configuration. JWT_PUBLIC_KEY is the PEM on one line with literal \n; JWT_PUBLIC_KEY_FILE, a file.
