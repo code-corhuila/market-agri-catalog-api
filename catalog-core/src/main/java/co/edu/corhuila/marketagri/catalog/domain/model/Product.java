@@ -2,6 +2,7 @@ package co.edu.corhuila.marketagri.catalog.domain.model;
 
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -22,8 +23,8 @@ public final class Product {
     private final ProductUnit unit;
     private final Money price;
     private final String municipality;
-    private final String photoUrl;
     private final Instant createdAt;
+    private String photoUrl;
     private Quantity quantity;
     private ProductStatus status;
     private Instant updatedAt;
@@ -88,6 +89,25 @@ public final class Product {
         applyQuantity(quantity.minus(requested), now);
     }
 
+    /** Only its producer may change it (E-14, E-16, E-17, E-18): otherwise {@code NOT_PRODUCT_OWNER}. */
+    public void ensureOwnedBy(UUID actingProducerId) {
+        if (!producerId.equals(actingProducerId)) {
+            throw new NotProductOwnerException(id, actingProducerId);
+        }
+    }
+
+    /** Sets or replaces the photo (E-16, D-C8: one photo per product). */
+    public void changePhoto(PhotoKey newPhoto, Instant now) {
+        this.photoUrl = Objects.requireNonNull(newPhoto, "newPhoto").url();
+        this.updatedAt = Objects.requireNonNull(now, "now");
+    }
+
+    /** Leaves the product without a photo (E-17). */
+    public void removePhoto(Instant now) {
+        this.photoUrl = null;
+        this.updatedAt = Objects.requireNonNull(now, "now");
+    }
+
     /** Gives back the stock of a reservation (I-04 or the saga's compensation). */
     public void release(Quantity reserved, Instant now) {
         applyQuantity(quantity.plus(reserved), now);
@@ -140,6 +160,15 @@ public final class Product {
         return MunicipalityKey.of(municipality);
     }
 
+    /**
+     * The key of the stored binary, read from {@code photoUrl}. Empty without a photo, and also for a
+     * {@code /media/} URL that is not a key: that binary is then never deleted, an orphan at worst.
+     */
+    public Optional<PhotoKey> photo() {
+        return PhotoKey.fromUrl(photoUrl);
+    }
+
+    /** {@code /media/{key}}, or {@code null} without a photo: never {@code ""} (D-C8). */
     public String photoUrl() {
         return photoUrl;
     }
