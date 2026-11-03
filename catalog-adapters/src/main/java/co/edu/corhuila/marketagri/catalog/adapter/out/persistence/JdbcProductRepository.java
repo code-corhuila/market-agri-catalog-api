@@ -1,5 +1,6 @@
 package co.edu.corhuila.marketagri.catalog.adapter.out.persistence;
 
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPhotos;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
 import co.edu.corhuila.marketagri.catalog.domain.model.Money;
@@ -19,12 +20,12 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * {@link ProductRepository} and {@link ProductStock} on the {@code catalog.product} table of market-agri-catalog-db, as
+ * {@link ProductRepository}, {@link ProductStock} and {@link ProductPhotos} on the {@code catalog.product} table of market-agri-catalog-db, as
  * catalog_app. Every query filters {@code deleted_at IS NULL} (INV-007); the list uses the index
  * {@code idx_product_created_at_id}. The status column is not read: {@link Product#restore}
  * derives it again from the quantity (INV-009); {@link #updateStock} writes the derived one.
  */
-public final class JdbcProductRepository implements ProductRepository, ProductStock {
+public final class JdbcProductRepository implements ProductRepository, ProductStock, ProductPhotos {
 
     private static final String COLUMNS = """
             id, producer_id, producer_name, name, category, unit, quantity, price_cents,
@@ -79,6 +80,15 @@ public final class JdbcProductRepository implements ProductRepository, ProductSt
                 WHERE id = :id""")
                 .param("quantity", product.quantity().value())
                 .param("status", product.status().name())
+                .param("updatedAt", product.updatedAt().atOffset(ZoneOffset.UTC))
+                .param("id", product.id())
+                .update();
+    }
+
+    @Override
+    public void updatePhoto(Product product) {
+        jdbc.sql("UPDATE catalog.product SET photo_url = :photoUrl, updated_at = :updatedAt WHERE id = :id")
+                .param("photoUrl", product.photoUrl())
                 .param("updatedAt", product.updatedAt().atOffset(ZoneOffset.UTC))
                 .param("id", product.id())
                 .update();

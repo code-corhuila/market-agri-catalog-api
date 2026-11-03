@@ -7,10 +7,13 @@ import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcProductPub
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcProductRepository;
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcReservationRepository;
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.SpringUnitOfWork;
+import co.edu.corhuila.marketagri.catalog.adapter.out.storage.FileSystemPhotoStorage;
 import co.edu.corhuila.marketagri.catalog.application.port.in.BrowseProducts;
 import co.edu.corhuila.marketagri.catalog.application.port.in.PublishProduct;
 import co.edu.corhuila.marketagri.catalog.application.port.in.ReleaseStock;
 import co.edu.corhuila.marketagri.catalog.application.port.in.ReserveStock;
+import co.edu.corhuila.marketagri.catalog.application.port.out.PhotoStorage;
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPhotos;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPublications;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
@@ -18,6 +21,7 @@ import co.edu.corhuila.marketagri.catalog.application.port.out.ReadinessCheck;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ReservationRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.UnitOfWork;
 import co.edu.corhuila.marketagri.catalog.application.usecase.BrowseProductsService;
+import co.edu.corhuila.marketagri.catalog.application.usecase.ProductPhotoService;
 import co.edu.corhuila.marketagri.catalog.application.usecase.PublishProductService;
 import co.edu.corhuila.marketagri.catalog.application.usecase.StockReservationService;
 import java.nio.file.Path;
@@ -44,7 +48,7 @@ public class CatalogConfiguration {
         return new JdbcDatabaseCheck(dataSource);
     }
 
-    /** Declared with its class: it is both {@link ProductRepository} and {@link ProductStock}. */
+    /** Declared with its class: it is {@link ProductRepository}, {@link ProductStock} and {@link ProductPhotos}. */
     @Bean
     JdbcProductRepository productRepository(JdbcClient jdbc) {
         return new JdbcProductRepository(jdbc);
@@ -82,6 +86,18 @@ public class CatalogConfiguration {
     StockReservationService stockReservations(ProductStock stock, ReservationRepository reservations,
                                               UnitOfWork unitOfWork) {
         return new StockReservationService(stock, reservations, unitOfWork, Clock.systemUTC());
+    }
+
+    /** The photos on disk, in MEDIA_DIR: a volume of the platform keeps them (deploy/compose.yml). */
+    @Bean
+    PhotoStorage photoStorage(@Value("${media.dir}") String folder) {
+        return new FileSystemPhotoStorage(Path.of(folder));
+    }
+
+    /** One bean for E-16, E-17 and E-62: it is both {@code ManageProductPhoto} and {@code ServePhoto}. */
+    @Bean
+    ProductPhotoService productPhotos(ProductPhotos products, PhotoStorage storage, UnitOfWork unitOfWork) {
+        return new ProductPhotoService(products, storage, unitOfWork, Clock.systemUTC());
     }
 
     /**
