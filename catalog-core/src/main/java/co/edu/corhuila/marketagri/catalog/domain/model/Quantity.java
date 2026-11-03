@@ -30,6 +30,14 @@ public record Quantity(BigDecimal value) {
         return new Quantity(new BigDecimal(value));
     }
 
+    /** What a caller asks to reserve (I-03): zero or less is {@code QUANTITY_NOT_POSITIVE}, not negative stock. */
+    public static Quantity requested(BigDecimal value) {
+        if (value.signum() <= 0) {
+            throw new QuantityNotPositiveException(value.toPlainString());
+        }
+        return new Quantity(value);
+    }
+
     public boolean isZero() {
         return value.signum() == 0;
     }
