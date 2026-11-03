@@ -37,6 +37,17 @@ class ProductTest {
     }
 
     @Test
+    void createdTrimsNameAndMunicipalityAndKeysTheMunicipality() {
+        Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), "Ana Ruiz", "  Café  ",
+                ProductCategory.CAFE, ProductUnit.ARROBA, quantity("1"), Money.ofCents(1), " San Agustín ",
+                CREATED);
+
+        assertThat(product.name()).isEqualTo("Café");
+        assertThat(product.municipality()).isEqualTo("San Agustín");
+        assertThat(product.municipalityKey()).isEqualTo(new MunicipalityKey("san agustin"));
+    }
+
+    @Test
     void createdWithoutStockIsOutOfStock() {
         assertThat(created("0").status()).isEqualTo(ProductStatus.OUT_OF_STOCK);
     }
