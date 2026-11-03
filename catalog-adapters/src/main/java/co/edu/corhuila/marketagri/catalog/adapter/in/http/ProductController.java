@@ -77,25 +77,13 @@ public class ProductController {
                     "Debe tener entre " + KEY_MIN + " y " + KEY_MAX + " caracteres.");
         }
         PublishProduct.Publication publication = publish.publish(new PublishProduct.Command(
-                producerId(caller), caller.name(), idempotencyKey, body.name(), body.category(), body.unit(),
+                caller.userId(), caller.name(), idempotencyKey, body.name(), body.category(), body.unit(),
                 body.quantity(), body.priceCents(), body.municipality()));
         ProductView view = ProductView.of(publication.product());
         if (!publication.created()) {
             return ResponseEntity.ok(view);
         }
         return ResponseEntity.created(URI.create(PRODUCTS + "/" + view.id())).body(view);
-    }
-
-    /** A user token has a UUID {@code sub} and a {@code name} (authentication.md §2); otherwise it is not valid. */
-    private static UUID producerId(Caller caller) {
-        if (caller.name() == null || caller.name().isBlank()) {
-            throw new UnauthorizedException("user token without name");
-        }
-        try {
-            return UUID.fromString(caller.subject());
-        } catch (IllegalArgumentException notAUuid) {
-            throw new UnauthorizedException("user token whose sub is not a UUID");
-        }
     }
 
     private static int number(Map<String, String> query, String name, int fallback, int min, int max,
