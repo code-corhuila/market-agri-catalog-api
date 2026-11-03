@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -151,5 +152,60 @@ class ProductTest {
         assertThat(product.quantity()).isEqualTo(quantity("2"));
         assertThat(product.status()).isEqualTo(ProductStatus.ACTIVE);
         assertThat(product.updatedAt()).isEqualTo(LATER);
+    }
+
+    @Test
+    void onlyItsProducerOwnsTheProduct() {
+        UUID ana = UUID.randomUUID();
+        Product product = Product.create(UUID.randomUUID(), ana, "Ana Ruiz", "Café", ProductCategory.CAFE,
+                ProductUnit.ARROBA, quantity("1"), Money.ofCents(1), "Garzón", CREATED);
+
+        product.ensureOwnedBy(ana);
+        assertThatThrownBy(() -> product.ensureOwnedBy(UUID.randomUUID()))
+                .isInstanceOfSatisfying(NotProductOwnerException.class,
+                        refused -> assertThat(refused.code()).isEqualTo("NOT_PRODUCT_OWNER"));
+    }
+
+    @Test
+    void aNewProductHasNoPhoto() {
+        Product product = created("1");
+
+        assertThat(product.photo()).isEqualTo(Optional.empty());
+        assertThat(product.photoUrl()).isNull();
+    }
+
+    @Test
+    void changingThePhotoKeepsItsKeyAsTheUrl() {
+        Product product = created("1");
+        PhotoKey key = PhotoKey.random(ImageFormat.PNG);
+
+        product.changePhoto(key, LATER);
+
+        assertThat(product.photo()).isEqualTo(Optional.of(key));
+        assertThat(product.photoUrl()).isEqualTo("/media/" + key.value());
+        assertThat(product.updatedAt()).isEqualTo(LATER);
+        assertThat(product.status()).isEqualTo(ProductStatus.ACTIVE);
+    }
+
+    @Test
+    void removingThePhotoLeavesNone() {
+        Product product = created("1");
+        product.changePhoto(PhotoKey.random(ImageFormat.JPEG), CREATED);
+
+        product.removePhoto(LATER);
+
+        assertThat(product.photoUrl()).isNull();
+        assertThat(product.updatedAt()).isEqualTo(LATER);
+    }
+
+    @Test
+    void aStoredPhotoUrlIsReadBackAsItsKey() {
+        String url = "/media/0123456789abcdef0123456789abcdef.webp";
+        Product product = Product.restore(UUID.randomUUID(), UUID.randomUUID(), "Ana Ruiz", "Café",
+                ProductCategory.CAFE, ProductUnit.ARROBA, quantity("1"), Money.ofCents(1), "Garzón", url,
+                CREATED, LATER);
+
+        assertThat(product.photoUrl()).isEqualTo(url);
+        assertThat(product.photo().orElseThrow().format()).isEqualTo(ImageFormat.WEBP);
     }
 }
