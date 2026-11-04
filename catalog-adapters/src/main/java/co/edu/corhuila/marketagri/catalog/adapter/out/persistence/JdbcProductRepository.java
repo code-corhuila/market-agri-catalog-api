@@ -1,5 +1,6 @@
 package co.edu.corhuila.marketagri.catalog.adapter.out.persistence;
 
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductEdits;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPhotos;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
@@ -23,12 +24,14 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * {@link ProductRepository}, {@link ProductStock} and {@link ProductPhotos} on the {@code catalog.product} table of market-agri-catalog-db, as
+ * {@link ProductRepository}, {@link ProductStock}, {@link ProductPhotos} and {@link ProductEdits} on the
+ * {@code catalog.product} table of market-agri-catalog-db, as
  * catalog_app. Every query filters {@code deleted_at IS NULL} (INV-007); the list uses the indexes
  * {@code idx_product_*_created_at_id} of catalog-db. The status column is not read: {@link Product#restore}
  * derives it again from the quantity (INV-009); {@link #updateStock} writes the derived one.
  */
-public final class JdbcProductRepository implements ProductRepository, ProductStock, ProductPhotos {
+public final class JdbcProductRepository implements ProductRepository, ProductStock, ProductPhotos,
+        ProductEdits {
 
     private static final String COLUMNS = """
             id, producer_id, producer_name, name, category, unit, quantity, price_cents,
@@ -62,6 +65,10 @@ public final class JdbcProductRepository implements ProductRepository, ProductSt
                 case ACTIVE -> " AND quantity > 0";
                 case OUT_OF_STOCK -> " AND quantity = 0";
             });
+        }
+        if (filter.producer() != null) {
+            where.append(" AND producer_id = :producerId");
+            params.put("producerId", filter.producer());
         }
         List<Product> items = jdbc.sql("SELECT " + COLUMNS + " FROM catalog.product WHERE " + where
                         + " ORDER BY created_at DESC, id ASC LIMIT :limit OFFSET :offset")
@@ -102,6 +109,27 @@ public final class JdbcProductRepository implements ProductRepository, ProductSt
                 WHERE id = :id""")
                 .param("quantity", product.quantity().value())
                 .param("status", product.status().name())
+                .param("updatedAt", product.updatedAt().atOffset(ZoneOffset.UTC))
+                .param("id", product.id())
+                .update();
+    }
+
+    /** The municipality key is written again with the municipality, as on creation (D-16). */
+    @Override
+    public void updateDetails(Product product) {
+        jdbc.sql("""
+                UPDATE catalog.product SET name = :name, category = :category, unit = :unit, quantity = :quantity,
+                    status = :status, price_cents = :priceCents, municipality = :municipality,
+                    municipality_key = :municipalityKey, updated_at = :updatedAt
+                WHERE id = :id""")
+                .param("name", product.name())
+                .param("category", product.category().name())
+                .param("unit", product.unit().name())
+                .param("quantity", product.quantity().value())
+                .param("status", product.status().name())
+                .param("priceCents", product.price().cents())
+                .param("municipality", product.municipality())
+                .param("municipalityKey", product.municipalityKey().value())
                 .param("updatedAt", product.updatedAt().atOffset(ZoneOffset.UTC))
                 .param("id", product.id())
                 .update();
