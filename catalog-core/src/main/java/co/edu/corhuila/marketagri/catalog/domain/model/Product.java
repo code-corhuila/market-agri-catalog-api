@@ -18,12 +18,12 @@ public final class Product {
     private final UUID id;
     private final UUID producerId;
     private final String producerName;
-    private final String name;
-    private final ProductCategory category;
-    private final ProductUnit unit;
-    private final Money price;
-    private final String municipality;
     private final Instant createdAt;
+    private String name;
+    private ProductCategory category;
+    private ProductUnit unit;
+    private Money price;
+    private String municipality;
     private String photoUrl;
     private Quantity quantity;
     private ProductStatus status;
@@ -67,8 +67,19 @@ public final class Product {
         return product;
     }
 
-    /** The owner sets the available quantity (E-14, FR-013). */
-    public void changeQuantity(Quantity newQuantity, Instant now) {
+    /**
+     * The owner replaces what a producer edits (E-14, full replacement), trimmed as in
+     * {@link #create}; the status follows the new quantity (INV-009, FR-013). Who published it, when,
+     * and the photo stay: the identity of the product does not change.
+     */
+    public void edit(String newName, ProductCategory newCategory, ProductUnit newUnit, Quantity newQuantity,
+                     Money newPrice, String newMunicipality, Instant now) {
+        MunicipalityKey.of(newMunicipality);
+        this.name = Objects.requireNonNull(newName, "newName").strip();
+        this.category = Objects.requireNonNull(newCategory, "newCategory");
+        this.unit = Objects.requireNonNull(newUnit, "newUnit");
+        this.price = Objects.requireNonNull(newPrice, "newPrice");
+        this.municipality = newMunicipality.strip();
         applyQuantity(Objects.requireNonNull(newQuantity, "newQuantity"), now);
     }
 

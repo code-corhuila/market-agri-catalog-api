@@ -50,6 +50,16 @@ class ProductFilterTest {
     }
 
     @Test
+    void mineIsOnlyThatProducersProducts() {
+        ProductFilter mine = ProductFilter.mine(CAFE_GARZON.producerId(), null);
+
+        assertThat(mine.matches(CAFE_GARZON)).isTrue();
+        assertThat(mine.matches(CACAO_NEIVA)).isFalse();
+        assertThat(ProductFilter.mine(CAFE_GARZON_SOLD_OUT.producerId(), ProductStatus.ACTIVE)
+                .matches(CAFE_GARZON_SOLD_OUT)).isFalse();
+    }
+
+    @Test
     void filtersCombineWithAnd() {
         ProductFilter cafeActiveInNeiva =
                 new ProductFilter(ProductCategory.CAFE, MunicipalityKey.of("Neiva"), ProductStatus.ACTIVE);
