@@ -9,6 +9,7 @@ import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcReservatio
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.SpringUnitOfWork;
 import co.edu.corhuila.marketagri.catalog.adapter.out.storage.FileSystemPhotoStorage;
 import co.edu.corhuila.marketagri.catalog.application.port.in.BrowseProducts;
+import co.edu.corhuila.marketagri.catalog.application.port.in.DeleteProduct;
 import co.edu.corhuila.marketagri.catalog.application.port.in.EditProduct;
 import co.edu.corhuila.marketagri.catalog.application.port.in.PublishProduct;
 import co.edu.corhuila.marketagri.catalog.application.port.in.ReleaseStock;
@@ -16,6 +17,7 @@ import co.edu.corhuila.marketagri.catalog.application.port.in.ReserveStock;
 import co.edu.corhuila.marketagri.catalog.application.port.out.PhotoStorage;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductEdits;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPhotos;
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRemovals;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPublications;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
@@ -23,6 +25,7 @@ import co.edu.corhuila.marketagri.catalog.application.port.out.ReadinessCheck;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ReservationRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.UnitOfWork;
 import co.edu.corhuila.marketagri.catalog.application.usecase.BrowseProductsService;
+import co.edu.corhuila.marketagri.catalog.application.usecase.DeleteProductService;
 import co.edu.corhuila.marketagri.catalog.application.usecase.EditProductService;
 import co.edu.corhuila.marketagri.catalog.application.usecase.ProductPhotoService;
 import co.edu.corhuila.marketagri.catalog.application.usecase.PublishProductService;
@@ -53,7 +56,7 @@ public class CatalogConfiguration {
 
     /**
      * Declared with its class: it is {@link ProductRepository}, {@link ProductStock},
-     * {@link ProductPhotos} and {@link ProductEdits}.
+     * {@link ProductPhotos}, {@link ProductEdits} and {@link ProductRemovals}.
      */
     @Bean
     JdbcProductRepository productRepository(JdbcClient jdbc) {
@@ -79,6 +82,11 @@ public class CatalogConfiguration {
     @Bean
     EditProduct editProduct(ProductEdits products, UnitOfWork unitOfWork) {
         return new EditProductService(products, unitOfWork, Clock.systemUTC());
+    }
+
+    @Bean
+    DeleteProduct deleteProduct(ProductRemovals products, PhotoStorage storage, UnitOfWork unitOfWork) {
+        return new DeleteProductService(products, storage, unitOfWork, Clock.systemUTC());
     }
 
     @Bean

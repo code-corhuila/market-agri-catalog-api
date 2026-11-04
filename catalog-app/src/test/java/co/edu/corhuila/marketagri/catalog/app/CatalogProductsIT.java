@@ -2,7 +2,10 @@ package co.edu.corhuila.marketagri.catalog.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import co.edu.corhuila.marketagri.catalog.application.port.in.ReleaseStock;
+import co.edu.corhuila.marketagri.catalog.application.port.in.ReserveStock;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductEdits;
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRemovals;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.domain.model.Money;
 import co.edu.corhuila.marketagri.catalog.domain.model.MunicipalityKey;
@@ -29,7 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The JDBC repository against the schema of catalog-db (Anexo C, "Integración": round trip, page,
- * the filters of E-10, my products of E-12 and the edit of E-14). catalog_app has no DELETE (D-14), so every test runs in a transaction that is rolled back.
+ * the filters of E-10, my products of E-12, the edit of E-14 and the
+ * deletion of E-18). catalog_app has no DELETE (D-14), so every test runs in a transaction that is rolled back.
  */
 @SpringBootTest
 @Transactional
@@ -50,6 +54,15 @@ class CatalogProductsIT extends CatalogSpringTest {
 
     @Autowired
     private ProductEdits edits;
+
+    @Autowired
+    private ProductRemovals removals;
+
+    @Autowired
+    private ReserveStock reserve;
+
+    @Autowired
+    private ReleaseStock release;
 
     @Autowired
     private JdbcClient jdbc;
@@ -223,5 +236,38 @@ class CatalogProductsIT extends CatalogSpringTest {
         UUID id = insert("3", "2026-10-02T10:00:00Z", null, true);
 
         assertThat(edits.findByIdForUpdate(id)).isEmpty();
+    }
+
+    /** E-18: the row stays with {@code deleted_at}; for every port the product is gone, and only once. */
+    @Test
+    void deletionIsLogicalTerminalAndHidesTheProductEverywhere() {
+        UUID id = insert("3", "2026-10-02T10:00:00Z", null, false);
+        Instant first = Instant.parse("2026-11-04T15:00:00Z");
+
+        removals.markDeleted(id, first);
+        removals.markDeleted(id, first.plusSeconds(60));
+
+        assertThat(repository.findById(id)).isEmpty();
+        assertThat(removals.findByIdForUpdate(id)).isEmpty();
+        assertThat(ids(ProductFilter.none())).doesNotContain(id);
+        assertThat(ids(ProductFilter.mine(PRODUCER, null))).doesNotContain(id);
+        assertThat(jdbc.sql("SELECT deleted_at FROM catalog.product WHERE id = :id").param("id", id)
+                .query(java.time.OffsetDateTime.class).single().toInstant()).isEqualTo(first);
+    }
+
+    /** HU-CAT-003 AC4 (characterization): a pending reservation of a deleted product is released as a no-op. */
+    @Test
+    void releaseAfterTheDeletionOnlyMarksTheReservation() {
+        UUID id = insert("10", "2026-10-02T10:00:00Z", null, false);
+        UUID transaction = UUID.randomUUID();
+        reserve.reserve(id, transaction, new java.math.BigDecimal("4"));
+        removals.markDeleted(id, Instant.parse("2026-11-04T15:00:00Z"));
+
+        release.release(transaction);
+
+        assertThat(jdbc.sql("SELECT released_at IS NOT NULL FROM catalog.stock_reservation WHERE transaction_id = :t")
+                .param("t", transaction).query(Boolean.class).single()).isTrue();
+        assertThat(jdbc.sql("SELECT quantity FROM catalog.product WHERE id = :id").param("id", id)
+                .query(java.math.BigDecimal.class).single()).isEqualByComparingTo("6");
     }
 }
