@@ -14,6 +14,7 @@ import co.edu.corhuila.marketagri.catalog.domain.model.Page;
 import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
 import co.edu.corhuila.marketagri.catalog.domain.model.Product;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductCategory;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductFilter;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductStatus;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductUnit;
 import co.edu.corhuila.marketagri.catalog.domain.model.Quantity;
@@ -78,7 +79,7 @@ class PublishProductServiceTest {
         }
 
         @Override
-        public Page<Product> findPage(PageRequest request) {
+        public Page<Product> findPage(ProductFilter filter, PageRequest request) {
             throw new UnsupportedOperationException();
         }
 

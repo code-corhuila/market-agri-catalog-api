@@ -8,7 +8,9 @@ import co.edu.corhuila.marketagri.catalog.domain.model.Money;
 import co.edu.corhuila.marketagri.catalog.domain.model.Page;
 import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
 import co.edu.corhuila.marketagri.catalog.domain.model.Product;
+import co.edu.corhuila.marketagri.catalog.domain.model.MunicipalityKey;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductCategory;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductFilter;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductNotFoundException;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductUnit;
 import co.edu.corhuila.marketagri.catalog.domain.model.Quantity;
@@ -25,12 +27,14 @@ class BrowseProductsServiceTest {
             "Café pergamino seco", ProductCategory.CAFE, ProductUnit.ARROBA, Quantity.of("40"),
             Money.ofCents(8_500_000), "Garzón", Instant.parse("2026-11-01T15:00:00Z"));
 
-    /** Remembers the page it was asked for and answers one product. */
+    /** Remembers the filter and the page it was asked for and answers one product. */
     private static final class FakeRepository implements ProductRepository {
+        ProductFilter askedFilter;
         PageRequest asked;
 
         @Override
-        public Page<Product> findPage(PageRequest request) {
+        public Page<Product> findPage(ProductFilter filter, PageRequest request) {
+            askedFilter = filter;
             asked = request;
             return new Page<>(List.of(CAFE), request, 41);
         }
@@ -45,9 +49,12 @@ class BrowseProductsServiceTest {
     private final BrowseProductsService browse = new BrowseProductsService(repository);
 
     @Test
-    void listAsksTheRepositoryForTheRequestedPage() {
-        Page<Product> page = browse.list(new PageRequest(2, 20));
+    void listAsksTheRepositoryForTheRequestedFilterAndPage() {
+        ProductFilter garzon = new ProductFilter(ProductCategory.CAFE, MunicipalityKey.of("Garzón"), null);
 
+        Page<Product> page = browse.list(garzon, new PageRequest(2, 20));
+
+        assertThat(repository.askedFilter).isEqualTo(garzon);
         assertThat(repository.asked).isEqualTo(new PageRequest(2, 20));
         assertThat(page.items()).containsExactly(CAFE);
         assertThat(page.total()).isEqualTo(41L);
