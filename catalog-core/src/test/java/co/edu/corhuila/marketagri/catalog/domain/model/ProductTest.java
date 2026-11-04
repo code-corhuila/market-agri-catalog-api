@@ -67,11 +67,16 @@ class ProductTest {
         assertThat(withoutStock.photoUrl()).isEqualTo("/media/photo.jpg");
     }
 
+    private static void editQuantity(Product product, String quantity) {
+        product.edit("Café pergamino seco", ProductCategory.CAFE, ProductUnit.ARROBA, quantity(quantity),
+                Money.ofCents(8_500_000), "Garzón", LATER);
+    }
+
     @Test
     void ownerEditToZeroMakesItOutOfStock() {
         Product product = created("40");
 
-        product.changeQuantity(quantity("0"), LATER);
+        editQuantity(product, "0");
 
         assertThat(product.status()).isEqualTo(ProductStatus.OUT_OF_STOCK);
         assertThat(product.updatedAt()).isEqualTo(LATER);
@@ -81,10 +86,46 @@ class ProductTest {
     void ownerEditFromZeroMakesItActive() {
         Product product = created("0");
 
-        product.changeQuantity(quantity("5"), LATER);
+        editQuantity(product, "5");
 
         assertThat(product.status()).isEqualTo(ProductStatus.ACTIVE);
         assertThat(product.quantity()).isEqualTo(quantity("5.00"));
+    }
+
+    @Test
+    void ownerEditReplacesTheDetailsTrimmedAndKeepsTheIdentityAndThePhoto() {
+        UUID id = UUID.randomUUID();
+        UUID producer = UUID.randomUUID();
+        Product product = Product.restore(id, producer, "Ana Ruiz", "Café", ProductCategory.CAFE,
+                ProductUnit.ARROBA, quantity("3"), Money.ofCents(680_000), "Garzón", "/media/photo.jpg",
+                CREATED, CREATED);
+
+        product.edit("  Cacao fino ", ProductCategory.CACAO, ProductUnit.KILOGRAMO, quantity("12.5"),
+                Money.ofCents(1_200_000), " San Agustín ", LATER);
+
+        assertThat(product.name()).isEqualTo("Cacao fino");
+        assertThat(product.category()).isEqualTo(ProductCategory.CACAO);
+        assertThat(product.unit()).isEqualTo(ProductUnit.KILOGRAMO);
+        assertThat(product.price()).isEqualTo(Money.ofCents(1_200_000));
+        assertThat(product.municipality()).isEqualTo("San Agustín");
+        assertThat(product.municipalityKey()).isEqualTo(new MunicipalityKey("san agustin"));
+        assertThat(product.id()).isEqualTo(id);
+        assertThat(product.producerId()).isEqualTo(producer);
+        assertThat(product.producerName()).isEqualTo("Ana Ruiz");
+        assertThat(product.photoUrl()).isEqualTo("/media/photo.jpg");
+        assertThat(product.createdAt()).isEqualTo(CREATED);
+        assertThat(product.updatedAt()).isEqualTo(LATER);
+    }
+
+    @Test
+    void ownerEditWithAMunicipalityWithoutLettersChangesNothing() {
+        Product product = created("40");
+
+        assertThatThrownBy(() -> product.edit("Otro", ProductCategory.CACAO, ProductUnit.LIBRA, quantity("1"),
+                Money.ofCents(1), "!!!", LATER)).isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(product.name()).isEqualTo("Café pergamino seco");
+        assertThat(product.updatedAt()).isEqualTo(CREATED);
     }
 
     @Test
