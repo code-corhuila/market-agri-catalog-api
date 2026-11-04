@@ -2,6 +2,7 @@ package co.edu.corhuila.marketagri.catalog.adapter.out.persistence;
 
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductEdits;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPhotos;
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRemovals;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
 import co.edu.corhuila.marketagri.catalog.domain.model.Money;
@@ -14,6 +15,7 @@ import co.edu.corhuila.marketagri.catalog.domain.model.ProductUnit;
 import co.edu.corhuila.marketagri.catalog.domain.model.Quantity;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
@@ -24,14 +26,15 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * {@link ProductRepository}, {@link ProductStock}, {@link ProductPhotos} and {@link ProductEdits} on the
+ * {@link ProductRepository}, {@link ProductStock}, {@link ProductPhotos}, {@link ProductEdits} and
+ * {@link ProductRemovals} on the
  * {@code catalog.product} table of market-agri-catalog-db, as
  * catalog_app. Every query filters {@code deleted_at IS NULL} (INV-007); the list uses the indexes
  * {@code idx_product_*_created_at_id} of catalog-db. The status column is not read: {@link Product#restore}
  * derives it again from the quantity (INV-009); {@link #updateStock} writes the derived one.
  */
 public final class JdbcProductRepository implements ProductRepository, ProductStock, ProductPhotos,
-        ProductEdits {
+        ProductEdits, ProductRemovals {
 
     private static final String COLUMNS = """
             id, producer_id, producer_name, name, category, unit, quantity, price_cents,
@@ -132,6 +135,17 @@ public final class JdbcProductRepository implements ProductRepository, ProductSt
                 .param("municipalityKey", product.municipalityKey().value())
                 .param("updatedAt", product.updatedAt().atOffset(ZoneOffset.UTC))
                 .param("id", product.id())
+                .update();
+    }
+
+    /** E-18: logical deletion (catalog_app has no DELETE); {@code deleted_at IS NULL} makes it once. */
+    @Override
+    public void markDeleted(UUID id, Instant now) {
+        jdbc.sql("""
+                UPDATE catalog.product SET deleted_at = :now, updated_at = :now
+                WHERE id = :id AND deleted_at IS NULL""")
+                .param("now", now.atOffset(ZoneOffset.UTC))
+                .param("id", id)
                 .update();
     }
 

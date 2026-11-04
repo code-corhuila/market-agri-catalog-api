@@ -1,6 +1,7 @@
 package co.edu.corhuila.marketagri.catalog.adapter.in.http;
 
 import co.edu.corhuila.marketagri.catalog.application.port.in.BrowseProducts;
+import co.edu.corhuila.marketagri.catalog.application.port.in.DeleteProduct;
 import co.edu.corhuila.marketagri.catalog.application.port.in.EditProduct;
 import co.edu.corhuila.marketagri.catalog.application.port.in.PublishProduct;
 import co.edu.corhuila.marketagri.catalog.domain.model.MunicipalityKey;
@@ -13,7 +14,11 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,16 +28,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Products of the catalog: E-10 with its filters and E-11, anonymous (HU-CAT-005, HU-CAT-006, D-C9),
- * E-12 and E-14, a producer's own products (HU-CAT-002), and E-13, a producer
+ * E-12, E-14 and E-18, a producer's own products (HU-CAT-002, HU-CAT-003), and E-13, a producer
  * publishing (HU-CAT-001).
  */
 @RestController
 @RequestMapping("/api/v1/catalog/products")
 public class ProductController {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ProductController.class);
 
     private static final Set<String> LIST_PARAMETERS =
             Set.of("page", "limit", "category", "municipality", "status");
@@ -47,11 +55,14 @@ public class ProductController {
     private final BrowseProducts browse;
     private final PublishProduct publish;
     private final EditProduct edit;
+    private final DeleteProduct deletion;
 
-    public ProductController(BrowseProducts browse, PublishProduct publish, EditProduct edit) {
+    public ProductController(BrowseProducts browse, PublishProduct publish, EditProduct edit,
+                             DeleteProduct deletion) {
         this.browse = browse;
         this.publish = publish;
         this.edit = edit;
+        this.deletion = deletion;
     }
 
     /**
@@ -122,6 +133,19 @@ public class ProductController {
             return ResponseEntity.ok(view);
         }
         return ResponseEntity.created(URI.create(PRODUCTS + "/" + view.id())).body(view);
+    }
+
+    /**
+     * E-18: {@code 204}; from now on the product is {@code 404} everywhere. Every deletion is logged
+     * with who and which product (NFR-052): the time and the correlation id come with every log line.
+     */
+    @RequiredRole("PRODUCER")
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@RequestAttribute(Caller.ATTRIBUTE) Caller caller, @PathVariable UUID id) {
+        deletion.delete(id, caller.userId());
+        LOG.atInfo().addKeyValue("productId", id).addKeyValue("producerId", caller.userId())
+                .log("Product {} deleted by producer {}", id, caller.userId());
     }
 
     private static void allowOnly(Map<String, String> query, Set<String> allowed) {

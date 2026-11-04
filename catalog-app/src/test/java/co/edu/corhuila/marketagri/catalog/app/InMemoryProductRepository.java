@@ -2,6 +2,7 @@ package co.edu.corhuila.marketagri.catalog.app;
 
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductEdits;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPhotos;
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRemovals;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPublications;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
@@ -9,6 +10,7 @@ import co.edu.corhuila.marketagri.catalog.domain.model.Page;
 import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
 import co.edu.corhuila.marketagri.catalog.domain.model.Product;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductFilter;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -19,7 +21,7 @@ import java.util.UUID;
 
 /** The product ports in memory, for the HTTP tests (Anexo C): same order and filters as E-10. */
 final class InMemoryProductRepository implements ProductRepository, ProductStock, ProductPublications,
-        ProductPhotos, ProductEdits {
+        ProductPhotos, ProductEdits, ProductRemovals {
 
     private static final Comparator<Product> E10_ORDER =
             Comparator.comparing(Product::createdAt).reversed().thenComparing(Product::id);
@@ -83,5 +85,11 @@ final class InMemoryProductRepository implements ProductRepository, ProductStock
     /** As {@link #updateStock}: the core already changed the product in the list. */
     @Override
     public void updateDetails(Product product) {
+    }
+
+    /** A deleted product does not exist for any port (INV-007): out of the list. */
+    @Override
+    public void markDeleted(UUID id, Instant now) {
+        products.removeIf(product -> product.id().equals(id));
     }
 }
