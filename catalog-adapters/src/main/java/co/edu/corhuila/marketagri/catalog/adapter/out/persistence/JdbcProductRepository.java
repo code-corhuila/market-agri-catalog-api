@@ -8,21 +8,24 @@ import co.edu.corhuila.marketagri.catalog.domain.model.Page;
 import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
 import co.edu.corhuila.marketagri.catalog.domain.model.Product;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductCategory;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductFilter;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductUnit;
 import co.edu.corhuila.marketagri.catalog.domain.model.Quantity;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
  * {@link ProductRepository}, {@link ProductStock} and {@link ProductPhotos} on the {@code catalog.product} table of market-agri-catalog-db, as
- * catalog_app. Every query filters {@code deleted_at IS NULL} (INV-007); the list uses the index
- * {@code idx_product_created_at_id}. The status column is not read: {@link Product#restore}
+ * catalog_app. Every query filters {@code deleted_at IS NULL} (INV-007); the list uses the indexes
+ * {@code idx_product_*_created_at_id} of catalog-db. The status column is not read: {@link Product#restore}
  * derives it again from the quantity (INV-009); {@link #updateStock} writes the derived one.
  */
 public final class JdbcProductRepository implements ProductRepository, ProductStock, ProductPhotos {
@@ -37,19 +40,38 @@ public final class JdbcProductRepository implements ProductRepository, ProductSt
         this.jdbc = jdbc;
     }
 
+    /**
+     * Each filter adds one fixed fragment to the {@code WHERE}; its value always travels as a
+     * parameter, never inside the SQL. The status is compared through the quantity (INV-009), as
+     * {@link ProductFilter#matches} does. The page and the total use the same conditions.
+     */
     @Override
-    public Page<Product> findPage(PageRequest request) {
-        List<Product> items = jdbc.sql("SELECT " + COLUMNS + """
-
-                FROM catalog.product
-                WHERE deleted_at IS NULL
-                ORDER BY created_at DESC, id ASC
-                LIMIT :limit OFFSET :offset""")
+    public Page<Product> findPage(ProductFilter filter, PageRequest request) {
+        StringBuilder where = new StringBuilder("deleted_at IS NULL");
+        Map<String, Object> params = new HashMap<>();
+        if (filter.category() != null) {
+            where.append(" AND category = :category");
+            params.put("category", filter.category().name());
+        }
+        if (filter.municipality() != null) {
+            where.append(" AND municipality_key = :municipalityKey");
+            params.put("municipalityKey", filter.municipality().value());
+        }
+        if (filter.status() != null) {
+            where.append(switch (filter.status()) {
+                case ACTIVE -> " AND quantity > 0";
+                case OUT_OF_STOCK -> " AND quantity = 0";
+            });
+        }
+        List<Product> items = jdbc.sql("SELECT " + COLUMNS + " FROM catalog.product WHERE " + where
+                        + " ORDER BY created_at DESC, id ASC LIMIT :limit OFFSET :offset")
+                .params(params)
                 .param("limit", request.limit())
                 .param("offset", request.offset())
                 .query(JdbcProductRepository::toProduct)
                 .list();
-        long total = jdbc.sql("SELECT count(*) FROM catalog.product WHERE deleted_at IS NULL")
+        long total = jdbc.sql("SELECT count(*) FROM catalog.product WHERE " + where)
+                .params(params)
                 .query(Long.class)
                 .single();
         return new Page<>(items, request, total);

@@ -2,7 +2,11 @@ package co.edu.corhuila.marketagri.catalog.adapter.in.http;
 
 import co.edu.corhuila.marketagri.catalog.application.port.in.BrowseProducts;
 import co.edu.corhuila.marketagri.catalog.application.port.in.PublishProduct;
+import co.edu.corhuila.marketagri.catalog.domain.model.MunicipalityKey;
 import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductCategory;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductFilter;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductStatus;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.Map;
@@ -20,14 +24,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Products of the catalog: E-10 and E-11, anonymous (HU-CAT-005, D-C9), and E-13, a producer
+ * Products of the catalog: E-10 with its filters and E-11, anonymous (HU-CAT-005, HU-CAT-006, D-C9),
+ * and E-13, a producer
  * publishing (HU-CAT-001).
  */
 @RestController
 @RequestMapping("/api/v1/catalog/products")
 public class ProductController {
 
-    private static final Set<String> LIST_PARAMETERS = Set.of("page", "limit");
+    private static final Set<String> LIST_PARAMETERS =
+            Set.of("page", "limit", "category", "municipality", "status");
+    private static final int MUNICIPALITY_MAX = 100;
     private static final String PRODUCTS = "/api/v1/catalog/products";
     private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
     private static final int KEY_MIN = 8;
@@ -41,7 +48,11 @@ public class ProductController {
         this.publish = publish;
     }
 
-    /** E-10: newest first, then by id; page and limit as D-C24. Filters arrive with HU-CAT-006. */
+    /**
+     * E-10: newest first, then by id; page and limit as D-C24. {@code category} and {@code status} are
+     * exact codes; {@code municipality} is compared without case or accents (D-16). They combine with
+     * AND (FR-015), and a combination without products is an empty page.
+     */
     @PublicEndpoint
     @GetMapping
     public PageView<ProductView> list(@RequestParam Map<String, String> query) {
@@ -53,7 +64,9 @@ public class ProductController {
                 "Debe ser un número entero mayor o igual a 1.");
         int limit = number(query, "limit", PageRequest.DEFAULT_LIMIT, 1, PageRequest.MAX_LIMIT,
                 "Debe ser un número entero entre 1 y " + PageRequest.MAX_LIMIT + ".");
-        return PageView.of(browse.list(new PageRequest(page, limit)), ProductView::of);
+        ProductFilter filter = new ProductFilter(code(query, "category", ProductCategory.class),
+                municipality(query.get("municipality")), code(query, "status", ProductStatus.class));
+        return PageView.of(browse.list(filter, new PageRequest(page, limit)), ProductView::of);
     }
 
     /** E-11. A deleted or unknown product is {@code 404 PRODUCT_NOT_FOUND}. */
@@ -84,6 +97,36 @@ public class ProductController {
             return ResponseEntity.ok(view);
         }
         return ResponseEntity.created(URI.create(PRODUCTS + "/" + view.id())).body(view);
+    }
+
+    /** An enum of the contract, exactly as written ({@code CAFE}, not {@code cafe}); absent is {@code null}. */
+    private static <E extends Enum<E>> E code(Map<String, String> query, String name, Class<E> type) {
+        String raw = query.get(name);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Enum.valueOf(type, raw);
+        } catch (IllegalArgumentException unknown) {
+            throw new InvalidParameterException(name, "Valor no permitido.");
+        }
+    }
+
+    /** 1–100 characters after trim, like {@code ProductWrite}, and at least one letter or digit for a key. */
+    private static MunicipalityKey municipality(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String municipality = raw.trim();
+        if (municipality.isEmpty() || municipality.length() > MUNICIPALITY_MAX) {
+            throw new InvalidParameterException("municipality",
+                    "Debe tener entre 1 y " + MUNICIPALITY_MAX + " caracteres.");
+        }
+        try {
+            return MunicipalityKey.of(municipality);
+        } catch (IllegalArgumentException withoutLetters) {
+            throw new InvalidParameterException("municipality", "Debe tener letras o números.");
+        }
     }
 
     private static int number(Map<String, String> query, String name, int fallback, int min, int max,
