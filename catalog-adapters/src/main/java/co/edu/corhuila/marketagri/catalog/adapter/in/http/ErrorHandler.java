@@ -1,11 +1,13 @@
 package co.edu.corhuila.marketagri.catalog.adapter.in.http;
 
 import java.util.List;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -64,6 +66,20 @@ public class ErrorHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Object> handleForbidden(ForbiddenException exception, WebRequest request) {
         LOG.warn("Denied: {}", exception.getMessage());
         return body(ErrorCode.FORBIDDEN, List.of(), HttpHeaders.EMPTY, request);
+    }
+
+    /** An unknown or out-of-range query parameter (D-C24), named in {@code details}. */
+    @ExceptionHandler(InvalidParameterException.class)
+    public ResponseEntity<Object> handleInvalidParameter(InvalidParameterException exception, WebRequest request) {
+        List<ApiError.FieldDetail> details = List.of(new ApiError.FieldDetail(exception.field(), exception.getMessage()));
+        return body(ErrorCode.VALIDATION_ERROR, details, HttpHeaders.EMPTY, request);
+    }
+
+    /** E-11 and every route on one product (api-contract §4.2). */
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<Object> handleProductNotFound(ProductNotFoundException exception, WebRequest request) {
+        ApiError error = new ApiError(exception.code(), "El producto no existe.", List.of(), traceId(request));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
     /** Last resort: neutral message to the client, full detail only in the log (NFR-039). */

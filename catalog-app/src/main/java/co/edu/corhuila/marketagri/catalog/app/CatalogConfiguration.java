@@ -3,7 +3,11 @@ package co.edu.corhuila.marketagri.catalog.app;
 import co.edu.corhuila.marketagri.catalog.adapter.in.http.PublicKeys;
 import co.edu.corhuila.marketagri.catalog.adapter.in.http.Rs256Verifier;
 import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcDatabaseCheck;
+import co.edu.corhuila.marketagri.catalog.adapter.out.persistence.JdbcProductRepository;
+import co.edu.corhuila.marketagri.catalog.application.port.in.BrowseProducts;
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ReadinessCheck;
+import co.edu.corhuila.marketagri.catalog.application.usecase.BrowseProductsService;
 import java.nio.file.Path;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
@@ -11,6 +15,7 @@ import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
  * The only place that knows the concrete types: use cases of the core are wired to the
@@ -23,6 +28,16 @@ public class CatalogConfiguration {
     @Bean
     ReadinessCheck databaseCheck(DataSource dataSource) {
         return new JdbcDatabaseCheck(dataSource);
+    }
+
+    @Bean
+    ProductRepository productRepository(JdbcClient jdbc) {
+        return new JdbcProductRepository(jdbc);
+    }
+
+    @Bean
+    BrowseProducts browseProducts(ProductRepository products) {
+        return new BrowseProductsService(products);
     }
 
     /**
