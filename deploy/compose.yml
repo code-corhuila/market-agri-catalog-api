@@ -12,6 +12,9 @@ services:
       DATABASE_PASSWORD: ${CATALOG_APP_PASSWORD:?set CATALOG_APP_PASSWORD}
       JWT_ISSUER: ${JWT_ISSUER:?set JWT_ISSUER}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY}
+      MEDIA_DIR: /var/lib/catalog/media
+    volumes:                          # the photos (E-16, E-62) outlive the container
+      - catalog-media:/var/lib/catalog/media
     depends_on:                       # postgres lives in market-agri-infra; resolved when included
       postgres:
         condition: service_healthy
@@ -27,6 +30,9 @@ services:
     stop_grace_period: 25s
     restart: unless-stopped
     networks: [platform]
+
+volumes:
+  catalog-media:
 
 networks:
   platform:

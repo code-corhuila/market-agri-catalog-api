@@ -18,6 +18,9 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -32,6 +35,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class ErrorHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(ErrorHandler.class);
+    private static final String FILE_PART = "file";
+    private static final String MISSING_PART = "Parte obligatoria.";
 
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
@@ -78,6 +83,19 @@ public class ErrorHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * A request that is not multipart where a file is expected (E-16): the {@code file} part is
+     * missing. One over the size limit is {@code 413} (D-C30), whichever handler receives it.
+     */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<Object> handleMultipart(MultipartException exception, WebRequest request) {
+        if (exception instanceof MaxUploadSizeExceededException) {
+            return body(ErrorCode.PAYLOAD_TOO_LARGE, List.of(), HttpHeaders.EMPTY, request);
+        }
+        List<ApiError.FieldDetail> details = List.of(new ApiError.FieldDetail(FILE_PART, MISSING_PART));
+        return body(ErrorCode.VALIDATION_ERROR, details, HttpHeaders.EMPTY, request);
+    }
+
+    /**
      * A broken rule of the core, with its contract code ({@link DomainError}). A code without a
      * row is a bug: it answers 500 and is logged.
      */
@@ -112,6 +130,9 @@ public class ErrorHandler extends ResponseEntityExceptionHandler {
         }
         if (exception instanceof MissingRequestHeaderException missing) {
             return List.of(new ApiError.FieldDetail(missing.getHeaderName(), "Encabezado obligatorio."));
+        }
+        if (exception instanceof MissingServletRequestPartException missing) {
+            return List.of(new ApiError.FieldDetail(missing.getRequestPartName(), MISSING_PART));
         }
         if (exception instanceof MissingServletRequestParameterException missing) {
             return List.of(new ApiError.FieldDetail(missing.getParameterName(), "Parámetro obligatorio."));
