@@ -21,6 +21,13 @@ spring:
     init:
       mode: never                       # no schema.sql or data.sql, ever (norm 5.2.1)
 
+# Tokens of auth, validated here (ADR-020, Anexo C 5.3.7): the issuer and the public key by
+# configuration. JWT_PUBLIC_KEY is the PEM on one line with literal \n; JWT_PUBLIC_KEY_FILE, a file.
+jwt:
+  issuer: ${JWT_ISSUER}
+  public-key: ${JWT_PUBLIC_KEY:}
+  public-key-file: ${JWT_PUBLIC_KEY_FILE:}
+
 server:
   port: ${PORT:8080}
   shutdown: graceful                    # finish in-flight requests before stopping

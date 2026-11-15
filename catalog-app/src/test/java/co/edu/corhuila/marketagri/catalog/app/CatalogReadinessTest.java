@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-class CatalogReadinessTest {
+class CatalogReadinessTest extends CatalogSpringTest {
 
     @Autowired
     private MockMvc http;
