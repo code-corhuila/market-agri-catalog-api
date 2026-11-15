@@ -5,6 +5,7 @@ import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository
 import co.edu.corhuila.marketagri.catalog.domain.model.Page;
 import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
 import co.edu.corhuila.marketagri.catalog.domain.model.Product;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductFilter;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductNotFoundException;
 import java.util.UUID;
 
@@ -18,8 +19,8 @@ public final class BrowseProductsService implements BrowseProducts {
     }
 
     @Override
-    public Page<Product> list(PageRequest request) {
-        return products.findPage(request);
+    public Page<Product> list(ProductFilter filter, PageRequest request) {
+        return products.findPage(filter, request);
     }
 
     @Override

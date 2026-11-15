@@ -7,6 +7,7 @@ import co.edu.corhuila.marketagri.catalog.application.port.out.ProductStock;
 import co.edu.corhuila.marketagri.catalog.domain.model.Page;
 import co.edu.corhuila.marketagri.catalog.domain.model.PageRequest;
 import co.edu.corhuila.marketagri.catalog.domain.model.Product;
+import co.edu.corhuila.marketagri.catalog.domain.model.ProductFilter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -15,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/** The product ports in memory, for the HTTP tests (Anexo C): same order as E-10. */
+/** The product ports in memory, for the HTTP tests (Anexo C): same order and filters as E-10. */
 final class InMemoryProductRepository implements ProductRepository, ProductStock, ProductPublications,
         ProductPhotos {
 
@@ -51,10 +52,10 @@ final class InMemoryProductRepository implements ProductRepository, ProductStock
     }
 
     @Override
-    public Page<Product> findPage(PageRequest request) {
-        List<Product> items = products.stream().sorted(E10_ORDER)
-                .skip(request.offset()).limit(request.limit()).toList();
-        return new Page<>(items, request, products.size());
+    public Page<Product> findPage(ProductFilter filter, PageRequest request) {
+        List<Product> matching = products.stream().filter(filter::matches).sorted(E10_ORDER).toList();
+        List<Product> items = matching.stream().skip(request.offset()).limit(request.limit()).toList();
+        return new Page<>(items, request, matching.size());
     }
 
     @Override
