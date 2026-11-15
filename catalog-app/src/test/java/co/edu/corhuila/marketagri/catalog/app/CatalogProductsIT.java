@@ -62,9 +62,11 @@ class CatalogProductsIT extends CatalogSpringTest {
         return id;
     }
 
+    /** CatalogReservationsIT commits its products and leaves them deleted: deleted rows do not count. */
     @BeforeEach
     void startFromAnEmptyCatalogInThisTransaction() {
-        assertThat(jdbc.sql("SELECT count(*) FROM catalog.product").query(Long.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT count(*) FROM catalog.product WHERE deleted_at IS NULL")
+                .query(Long.class).single()).isZero();
     }
 
     @Test

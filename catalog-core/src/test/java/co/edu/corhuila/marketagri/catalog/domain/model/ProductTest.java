@@ -116,7 +116,18 @@ class ProductTest {
         Product product = created("3");
 
         assertThatThrownBy(() -> product.reserve(quantity("0"), LATER))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOfSatisfying(QuantityNotPositiveException.class,
+                        refused -> assertThat(refused.code()).isEqualTo("QUANTITY_NOT_POSITIVE"));
+    }
+
+    @Test
+    void reservingAProductOutOfStockIsNotAvailableBeforeInsufficient() {
+        Product product = created("0");
+
+        assertThatThrownBy(() -> product.reserve(quantity("1"), LATER))
+                .isInstanceOfSatisfying(ProductNotAvailableException.class,
+                        refused -> assertThat(refused.code()).isEqualTo("PRODUCT_NOT_AVAILABLE"));
+        assertThat(product.updatedAt()).isEqualTo(CREATED);
     }
 
     @Test

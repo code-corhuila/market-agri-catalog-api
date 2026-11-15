@@ -1,13 +1,15 @@
 package co.edu.corhuila.marketagri.catalog.adapter.in.http;
 
+import co.edu.corhuila.marketagri.catalog.domain.model.DomainException;
+import co.edu.corhuila.marketagri.catalog.domain.model.InsufficientStockException;
+import co.edu.corhuila.marketagri.catalog.domain.model.Quantity;
 import java.util.List;
-import co.edu.corhuila.marketagri.catalog.domain.model.ProductNotFoundException;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -24,7 +26,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * The single place where an exception becomes an HTTP response (Anexo C, api-contract §2).
  * Spring's own exceptions (404 route, 405, malformed JSON, type mismatch, missing header…)
  * arrive through {@link #handleExceptionInternal}; anything else, through
- * {@link #handleUnexpected}. Domain errors will be mapped here too, never in a controller.
+ * {@link #handleUnexpected}. Domain errors are mapped here too, never in a controller.
  */
 @RestControllerAdvice
 public class ErrorHandler extends ResponseEntityExceptionHandler {
@@ -75,11 +77,21 @@ public class ErrorHandler extends ResponseEntityExceptionHandler {
         return body(ErrorCode.VALIDATION_ERROR, details, HttpHeaders.EMPTY, request);
     }
 
-    /** E-11 and every route on one product (api-contract §4.2). */
-    @ExceptionHandler(ProductNotFoundException.class)
-    public ResponseEntity<Object> handleProductNotFound(ProductNotFoundException exception, WebRequest request) {
-        ApiError error = new ApiError(exception.code(), "El producto no existe.", List.of(), traceId(request));
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    /**
+     * A broken rule of the core, with its contract code ({@link DomainError}). A code without a
+     * row is a bug: it answers 500 and is logged.
+     */
+    @ExceptionHandler(DomainException.class)
+    public ResponseEntity<Object> handleDomain(DomainException exception, WebRequest request) {
+        Optional<DomainError> known = DomainError.of(exception.code());
+        if (known.isEmpty()) {
+            return handleUnexpected(exception, request);
+        }
+        String message = exception instanceof InsufficientStockException insufficient
+                ? known.get().message(display(insufficient.available()), display(insufficient.requested()))
+                : known.get().message();
+        ApiError error = new ApiError(exception.code(), message, List.of(), traceId(request));
+        return ResponseEntity.status(known.get().status()).body(error);
     }
 
     /** Last resort: neutral message to the client, full detail only in the log (NFR-039). */
@@ -87,6 +99,11 @@ public class ErrorHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Object> handleUnexpected(Exception exception, WebRequest request) {
         LOG.error("Unhandled exception", exception);
         return body(ErrorCode.INTERNAL_ERROR, List.of(), HttpHeaders.EMPTY, request);
+    }
+
+    /** {@code 3}, {@code 12.5}: never {@code 3.00} in a message. */
+    private static String display(Quantity quantity) {
+        return quantity.value().stripTrailingZeros().toPlainString();
     }
 
     private static List<ApiError.FieldDetail> detailsOf(Exception exception, ErrorCode code) {
