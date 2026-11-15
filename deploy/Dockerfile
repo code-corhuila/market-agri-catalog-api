@@ -15,7 +15,8 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-RUN addgroup -S app && adduser -S app -G app
+RUN addgroup -S app && adduser -S app -G app \
+    && mkdir -p /var/lib/catalog/media && chown app:app /var/lib/catalog/media
 COPY --from=build /src/catalog-app/target/catalog-app-*.jar /app/app.jar
 USER app
 

@@ -2,6 +2,7 @@ package co.edu.corhuila.marketagri.catalog.adapter.in.http;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Arrays;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -9,8 +10,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 /**
  * Applies the token rules to every route that has a handler: a route marked
  * {@link PublicEndpoint} ignores tokens; any other needs a valid one (401). A service token is
- * accepted only on {@code /internal/**} and a user token only outside it (403, D-C27). The
- * caller is left in the request under {@link Caller#ATTRIBUTE}.
+ * accepted only on {@code /internal/**} and a user token only outside it (403, D-C27), and a
+ * route marked {@link RequiredRole} only takes those roles (403). The caller is left in the
+ * request under {@link Caller#ATTRIBUTE}.
  *
  * <p>An interceptor, not a servlet filter: it runs after the route is resolved, so an unknown
  * route is still {@code 404} and a wrong method {@code 405}, and before the body is read, so the
@@ -36,6 +38,10 @@ public final class AuthInterceptor implements HandlerInterceptor {
         boolean internal = request.getRequestURI().startsWith(INTERNAL_PREFIX);
         if (internal != caller.isService()) {
             throw new ForbiddenException(internal ? "user token on an internal route" : "service token on a public route");
+        }
+        RequiredRole required = route.getMethodAnnotation(RequiredRole.class);
+        if (required != null && !Arrays.asList(required.value()).contains(caller.role())) {
+            throw new ForbiddenException("role " + caller.role() + " may not use this route");
         }
         request.setAttribute(Caller.ATTRIBUTE, caller);
         return true;
