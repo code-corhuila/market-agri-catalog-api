@@ -1,25 +1,52 @@
 # market-agri-catalog-api
 
-> catalog bounded context: service API
+Service API of the **catalog** domain (products published by producers and the internal stock
+reservations used by the purchase saga) of the **Marketplace Agrícola Huila** distributed system:
+Java 21, Spring Boot 3.5, hexagonal architecture in three Maven modules (Anexo C). Contract:
+`market-agri-docs/07-api/api-contract.md` §4.2.
 
-Part of the **LMS Library** distributed system — team `lms-library`, Grupo 2.
-Governance and documentation live in [`library-docs`](https://github.com/code-corhuila/library-docs).
-
-## Branching
-
-Three permanent branches. **None of them accepts a direct commit** — you enter through a child
-branch and leave through a Pull Request.
+## Modules
 
 ```
-develop  <--PR--  feat/... fix/... chore/...
-qa       <--PR--  qa/...
-main     <--PR--  release/...  hotfix/...
+catalog-core/      domain/model, application/port/{in,out}, application/usecase — plain Java, no framework
+catalog-adapters/  adapter/in/http, adapter/out/persistence
+catalog-app/       composition root: entry point, wiring and every limit (application.yml)
+deploy/            Dockerfile and compose.yml, included by market-agri-infra (no host port)
 ```
 
-Promotion happens **by re-application** (`git cherry-pick -x`), never by merging one permanent
-branch into another: `merge develop -> qa` and `merge qa -> main` do not exist in this model.
+`catalog-core` declares no framework: a Spring or JDBC type there does not compile. The schema and
+its migrations live in `market-agri-catalog-db` (ADR-011); this service connects as
+`catalog_app` and never migrates.
 
-`main` requires **1 approval from `ariel5253`**. On `develop` and `qa` the team sets its own review
-rule.
+## What the service already does
 
-Full policy: `00-governance/branching-policy.md` in `library-docs`.
+| Rule | Where |
+|---|---|
+| `GET /health` → `200 {"status":"UP"}` without token (liveness, E-60) | `adapter/in/http/HealthController` |
+| One error body `{error, message, details, traceId}` from **one** handler (D-C21) | `adapter/in/http/ErrorHandler` |
+| `X-Correlation-Id` reused or generated, returned, as `traceId` and in every JSON log line (D-C28) | `adapter/in/http/CorrelationFilter` |
+| `GET /health/ready` → `200`/`503` `{"status","checks":{"database"}}` without token (readiness, E-61) | `adapter/in/http/HealthController`, `adapter/out/persistence/JdbcDatabaseCheck` |
+| Pool of 10 connections, 5 s wait, `statement_timeout` 5 s, always as `catalog_app` (Anexo C 5.3.10) | `catalog-app/src/main/resources/application.yml` |
+
+## Run locally
+
+```bash
+./mvnw -B verify                      # build, unit and HTTP tests (Windows: mvnw.cmd)
+cp .env.example .env                  # DATABASE_* of a database where catalog-db is migrated
+set -a && . ./.env && set +a && java -jar catalog-app/target/catalog-app-0.0.1-SNAPSHOT.jar
+curl -i http://localhost:8080/health/ready
+```
+
+## Integration tests
+
+They run against a real PostgreSQL with the schema of `market-agri-catalog-db`, reached through
+`TEST_DATABASE_URL` (Anexo C), and are skipped when it is not set. With Docker and catalog-db
+cloned next to this repository:
+
+```bash
+export "$(bash scripts/test-database.sh)"   # throwaway container on 127.0.0.1:55432, migrated
+./mvnw -B verify -Pintegration              # unit, HTTP and *IT
+bash scripts/test-database.sh down
+```
+
+In CI, the `integration` job does the same on every pull request to `qa`.
