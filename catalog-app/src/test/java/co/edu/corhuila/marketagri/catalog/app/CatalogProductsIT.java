@@ -2,6 +2,7 @@ package co.edu.corhuila.marketagri.catalog.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductEdits;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
 import co.edu.corhuila.marketagri.catalog.domain.model.Money;
 import co.edu.corhuila.marketagri.catalog.domain.model.MunicipalityKey;
@@ -13,6 +14,7 @@ import co.edu.corhuila.marketagri.catalog.domain.model.ProductFilter;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductStatus;
 import co.edu.corhuila.marketagri.catalog.domain.model.ProductUnit;
 import co.edu.corhuila.marketagri.catalog.domain.model.Quantity;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,8 +28,8 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The JDBC repository against the schema of catalog-db (Anexo C, "Integración": round trip, page
- * and the filters of E-10). catalog_app has no DELETE (D-14), so every test runs in a transaction that is rolled back.
+ * The JDBC repository against the schema of catalog-db (Anexo C, "Integración": round trip, page,
+ * the filters of E-10, my products of E-12 and the edit of E-14). catalog_app has no DELETE (D-14), so every test runs in a transaction that is rolled back.
  */
 @SpringBootTest
 @Transactional
@@ -45,6 +47,9 @@ class CatalogProductsIT extends CatalogSpringTest {
 
     @Autowired
     private ProductRepository repository;
+
+    @Autowired
+    private ProductEdits edits;
 
     @Autowired
     private JdbcClient jdbc;
@@ -173,5 +178,50 @@ class CatalogProductsIT extends CatalogSpringTest {
         Page<Product> page = repository.findPage(filter, new PageRequest(1, 20));
         assertThat(page.total()).isEqualTo(page.items().size());
         return page.items().stream().map(Product::id).toList();
+    }
+
+    @Test
+    void mineIsOnlyThatProducersProducts() {
+        UUID mine = insert("CAFE", "Garzón", "1", "2026-10-01T10:00:00Z");
+        UUID mineSoldOut = insert("CAFE", "Garzón", "0", "2026-10-02T10:00:00Z");
+        UUID someoneElses = insert("CAFE", "Garzón", "1", "2026-10-03T10:00:00Z");
+        UUID other = UUID.fromString("a1b2c3d4-4444-0000-0000-000000000002");
+        jdbc.sql("UPDATE catalog.product SET producer_id = :other WHERE id = :id")
+                .param("other", other).param("id", someoneElses).update();
+
+        assertThat(ids(ProductFilter.mine(PRODUCER, null))).containsExactly(mineSoldOut, mine);
+        assertThat(ids(ProductFilter.mine(PRODUCER, ProductStatus.ACTIVE))).containsExactly(mine);
+        assertThat(ids(ProductFilter.mine(other, null))).containsExactly(someoneElses);
+    }
+
+    /** E-14: every edited column, the municipality key and the derived status reach the row. */
+    @Test
+    void editStoresTheDetailsTheKeyAndTheDerivedStatus() {
+        UUID id = insert("12.5", "2026-10-02T10:00:00Z", "/media/cafe.jpg", false);
+        Instant edited = Instant.parse("2026-11-04T15:00:00Z");
+        Product product = edits.findByIdForUpdate(id).orElseThrow();
+
+        product.edit("Cacao fino", ProductCategory.CACAO, ProductUnit.KILOGRAMO, Quantity.of("0"),
+                Money.ofCents(1_200_000), "San Agustín", edited);
+        edits.updateDetails(product);
+
+        Product stored = repository.findById(id).orElseThrow();
+        assertThat(stored.name()).isEqualTo("Cacao fino");
+        assertThat(stored.category()).isEqualTo(ProductCategory.CACAO);
+        assertThat(stored.unit()).isEqualTo(ProductUnit.KILOGRAMO);
+        assertThat(stored.price()).isEqualTo(Money.ofCents(1_200_000));
+        assertThat(stored.municipality()).isEqualTo("San Agustín");
+        assertThat(stored.photoUrl()).isEqualTo("/media/cafe.jpg");
+        assertThat(stored.updatedAt()).isEqualTo(edited);
+        assertThat(jdbc.sql("SELECT status || ' ' || municipality_key FROM catalog.product WHERE id = :id")
+                .param("id", id).query(String.class).single()).isEqualTo("OUT_OF_STOCK san agustin");
+        assertThat(ids(new ProductFilter(null, MunicipalityKey.of("san agustin"), null))).containsExactly(id);
+    }
+
+    @Test
+    void deletedProductCannotBeEdited() {
+        UUID id = insert("3", "2026-10-02T10:00:00Z", null, true);
+
+        assertThat(edits.findByIdForUpdate(id)).isEmpty();
     }
 }

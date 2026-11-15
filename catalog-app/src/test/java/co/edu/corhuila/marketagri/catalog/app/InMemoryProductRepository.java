@@ -1,5 +1,6 @@
 package co.edu.corhuila.marketagri.catalog.app;
 
+import co.edu.corhuila.marketagri.catalog.application.port.out.ProductEdits;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPhotos;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductPublications;
 import co.edu.corhuila.marketagri.catalog.application.port.out.ProductRepository;
@@ -18,7 +19,7 @@ import java.util.UUID;
 
 /** The product ports in memory, for the HTTP tests (Anexo C): same order and filters as E-10. */
 final class InMemoryProductRepository implements ProductRepository, ProductStock, ProductPublications,
-        ProductPhotos {
+        ProductPhotos, ProductEdits {
 
     private static final Comparator<Product> E10_ORDER =
             Comparator.comparing(Product::createdAt).reversed().thenComparing(Product::id);
@@ -77,5 +78,10 @@ final class InMemoryProductRepository implements ProductRepository, ProductStock
     /** As {@link #updateStock}: the core already changed the product in the list. */
     @Override
     public void updatePhoto(Product product) {
+    }
+
+    /** As {@link #updateStock}: the core already changed the product in the list. */
+    @Override
+    public void updateDetails(Product product) {
     }
 }
